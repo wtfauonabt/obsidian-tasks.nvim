@@ -1,4 +1,4 @@
----@class CustomModule
+---@class ObsidianTasks
 local M = {}
 
 ---@return string
