@@ -1,1 +1,1 @@
-vim.api.nvim_create_user_command("MyFirstFunction", require("obsidian-tasks").hello, {})
+vim.api.nvim_create_user_command("ObsidianTasks", require("obsidian-tasks").search, {})
