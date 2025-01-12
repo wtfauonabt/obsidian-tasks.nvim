@@ -7,7 +7,7 @@ M.ls = function(path)
 
     -- List files in the path
     for _, file in ipairs(vim.fn.readdir(path)) do
-        table.insert(file_list, file)
+        table.insert(file_list, path .. '/' .. file)
     end
 
     return file_list
