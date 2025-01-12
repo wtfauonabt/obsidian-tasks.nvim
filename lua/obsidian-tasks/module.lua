@@ -1,6 +1,6 @@
 
 -- Importing libraries
-local files = require("obsidian-tasks.files")
+local task = require("obsidian-tasks.task")
 local telescope = require("obsidian-tasks.telescope")
 
 ---@class ObsidianTasks
@@ -11,10 +11,13 @@ M.search = function(vault_path, task_folder, filters)
     local search_path = vault_path .. task_folder
 
     -- List files in the task folder and parse to telescope
-    local file_list = files.ls(search_path)
+    local task_list = task.getTaskList(search_path)
+
+    -- Filter tasks based on the filters
+    task_list = task.filterTasks(task_list, filters)
 
     -- Call telescope to find tasks
-    telescope.task_finder(file_list)
+    telescope.taskFinder(task_list)
 end
 
 return M

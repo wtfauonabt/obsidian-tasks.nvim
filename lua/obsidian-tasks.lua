@@ -6,7 +6,11 @@ local module = require("obsidian-tasks.module")
 local config = {
     opt = {},
     vault_path = os.getenv('OBSIDIAN_VAULT_PATH') or "/default/path/to/vault",
-    task_folder = "/task"
+    task_folder = "/task",
+    filters = {
+        Archive = "true",
+        Status = "Completed",
+    },
 }
 
 ---@class MyModule
@@ -22,12 +26,12 @@ M.setup = function(args)
     M.config = vim.tbl_deep_extend("force", M.config, args or {})
     M.vault_path = config.vault_path or "/default/path/to/vault"
     M.task_folder = config.task_folder or "/tasks"
+    M.filters = config.filters or {}
     -- Initialize your plugin with the provided configuration
 end
 
 M.search = function()
-    local filters = {}
-    return module.search(M.vault_path, M.task_folder, filters)
+    return module.search(M.vault_path, M.task_folder, M.filters)
 end
 
 return M

@@ -7,13 +7,13 @@ local previewers = require "telescope.previewers"
 local M = {}
 
 -- Custom finder function for Telescope
-M.task_finder = function(file_list)
+M.taskFinder = function(task_list)
     --opts = opts or {}
     local opts = {}
     pickers.new(opts, {
         prompt_title = "Obsidian Tasks",
         finder = finders.new_table {
-            results = file_list
+            results = task_list
         },
         file_ignore_patterns = {".space"},
         sorter = conf.generic_sorter(opts),
