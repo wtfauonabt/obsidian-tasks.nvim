@@ -38,6 +38,10 @@ M.getTaskProperties = function(task_path)
             goto continue
         end
 
+        if not property_identifier_found then
+            goto continue
+        end
+
         local key = line:match("([^%s]+)%s*:%s*")
         local value = line:match("[^%s]+%s*:%s*([^\n]+)")
 
