@@ -63,7 +63,7 @@ M.filterTasks = function(task_list, filters)
 
         -- Loop filter and see if task matches
         for key, value in pairs(filters) do
-            if task_properties[key] == value then
+            if task_properties[key] and task_properties[key]:find(value) then
                 goto continue
             end
         end
