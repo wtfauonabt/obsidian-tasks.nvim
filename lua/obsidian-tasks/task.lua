@@ -45,7 +45,10 @@ M.getTaskProperties = function(task_path)
         local key = line:match("([^%s]+)%s*:%s*")
         local value = line:match("[^%s]+%s*:%s*([^\n]+)")
 
-        task[key] = value
+        -- Only add to task table if key is not nil
+        if key then
+            task[key] = value
+        end
 
         ::continue::
     end
@@ -58,6 +61,12 @@ M.filterTasks = function(task_list, filters)
     local filtered_task_list = {}
 
     for _, file_path in ipairs(task_list) do
+
+        -- Skip if file_path is nil or empty
+        if not file_path or file_path == "" then
+            goto continue
+        end
+
         -- Get task properties
         local task_properties = M.getTaskProperties(file_path)
 
