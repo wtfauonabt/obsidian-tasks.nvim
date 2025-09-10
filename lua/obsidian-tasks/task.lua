@@ -30,7 +30,17 @@ end
 ---@param value string
 ---@return string|nil
 local function parse_bracket_list(value)
-    return value:match("%[%[([^%]]+)%]%]")
+    -- Extract all bracket values and join them with commas
+    local bracket_values = {}
+    for bracket_value in value:gmatch("%[%[([^%]]+)%]%]") do
+        table.insert(bracket_values, bracket_value)
+    end
+    
+    if #bracket_values > 0 then
+        return table.concat(bracket_values, ", ")
+    end
+    
+    return nil
 end
 
 -- Utility function to parse multi-line bullet list
@@ -40,11 +50,17 @@ end
 local function parse_bullet_list(lines, start_index)
     local list_values = {}
     local i = start_index
-
+    
     while i <= #lines do
         local line = lines[i]
+        
+        -- Stop if we hit another property delimiter
+        if is_property_delimiter(line) then
+            break
+        end
+        
         local bullet_value = line:match("^%s*%-%s*(.+)")
-
+        
         if bullet_value then
             local trimmed_value = bullet_value:gsub("^%s+", ""):gsub("%s+$", "")
             table.insert(list_values, trimmed_value)
@@ -53,7 +69,7 @@ local function parse_bullet_list(lines, start_index)
             break
         end
     end
-
+    
     return list_values, i
 end
 
@@ -77,19 +93,39 @@ end
 ---@return table
 local function split_property_values(property_value)
     local values = {}
-    for value in property_value:gmatch("([^,]+)") do
-        table.insert(values, value:gsub("^%s+", ""):gsub("%s+$", ""))
+    if property_value and type(property_value) == "string" then
+        for value in property_value:gmatch("([^,]+)") do
+            local trimmed_value = value:gsub("^%s+", ""):gsub("%s+$", "")
+            table.insert(values, trimmed_value)
+        end
     end
     return values
+end
+
+-- Utility function to normalize filter value (handle metadata format)
+---@param filter_item string|table
+---@return string, boolean
+local function normalize_filter_item(filter_item)
+    if type(filter_item) == "string" then
+        return filter_item, false  -- default to case sensitive
+    elseif type(filter_item) == "table" and filter_item.value then
+        return filter_item.value, filter_item.case_insensitive or false
+    else
+        return tostring(filter_item), false
+    end
 end
 
 -- Utility function to check if any property value matches a single filter value
 ---@param property_values table
 ---@param filter_value string
+---@param case_insensitive boolean
 ---@return boolean
-local function matches_single_filter(property_values, filter_value)
+local function matches_single_filter(property_values, filter_value, case_insensitive)
     for _, prop_val in ipairs(property_values) do
-        if prop_val:find(filter_value) then
+        local search_text = case_insensitive and prop_val:lower() or prop_val
+        local search_filter = case_insensitive and filter_value:lower() or filter_value
+
+        if search_text:find(search_filter) then
             return true
         end
     end
@@ -98,11 +134,12 @@ end
 
 -- Utility function to check if any property value matches any of multiple filter values
 ---@param property_values table
----@param filter_values table
+---@param filter_items table
 ---@return boolean
-local function matches_multiple_filters(property_values, filter_values)
-    for _, filter_val in ipairs(filter_values) do
-        if matches_single_filter(property_values, filter_val) then
+local function matches_multiple_filters(property_values, filter_items)
+    for _, filter_item in ipairs(filter_items) do
+        local filter_value, case_insensitive = normalize_filter_item(filter_item)
+        if matches_single_filter(property_values, filter_value, case_insensitive) then
             return true
         end
     end
@@ -119,7 +156,8 @@ local function property_matches_filter(property_value, filter_value)
     if type(filter_value) == "table" then
         return matches_multiple_filters(property_values, filter_value)
     else
-        return matches_single_filter(property_values, filter_value)
+        -- Single value, default to case sensitive
+        return matches_single_filter(property_values, filter_value, false)
     end
 end
 
@@ -211,14 +249,16 @@ M.getTaskProperties = function(task_path)
         ::continue::
     end
 
-
+    return task
 end
 
 --- Filter tasks based on the filters
 ---@param task_list table List of task file paths
----@param filters table Filter criteria. Supports both single values and arrays:
----   Single value: {Status = "Completed"}
+---@param filters table Filter criteria. Supports multiple formats:
+---   Simple single value: {Status = "Completed"}
 ---   Multiple values: {Status = {"Completed", "Closed"}}
+---   With metadata: {Status = {{value = "Completed", case_insensitive = true}, "Closed"}}
+---   Mixed format: {Status = {"Completed", {value = "Closed", case_insensitive = false}}}
 ---   Works with various property formats:
 ---   - Simple: Status: Completed
 ---   - Bracket list: Status: [[Closed]]
