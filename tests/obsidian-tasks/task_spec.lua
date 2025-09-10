@@ -461,4 +461,152 @@ Status: %s
             assert.equals(2, #filtered)  -- simple and mixed_properties
         end)
     end)
+
+    describe("exclusion filters", function()
+        local task_list
+
+        before_each(function()
+            task_list = task.getTaskList(test_dir)
+        end)
+
+        it("should exclude tasks with specific status using !Status", function()
+            local filters = {
+                ["!Status"] = {"Completed", "Closed"}
+            }
+            local filtered = task.filterTasks(task_list, filters)
+            
+            -- Should exclude simple, bracket_list, and mixed_properties (3 files)
+            -- Should include bullet_list and case_variations (2 files)
+            assert.equals(2, #filtered)
+            
+            -- Verify the remaining files don't have Completed or Closed status
+            for _, file_path in ipairs(filtered) do
+                local properties = task.getTaskProperties(file_path)
+                if properties.Status then
+                    assert.is_false(properties.Status:find("Completed") ~= nil)
+                    assert.is_false(properties.Status:find("Closed") ~= nil)
+                end
+            end
+        end)
+
+        it("should exclude tasks with single status value", function()
+            local filters = {
+                ["!Status"] = "Completed"
+            }
+            local filtered = task.filterTasks(task_list, filters)
+            
+            -- Should exclude simple and mixed_properties (2 files)
+            -- Should include bracket_list, bullet_list, and case_variations (3 files)
+            assert.equals(3, #filtered)
+        end)
+
+        it("should handle exclusion filters with case insensitive matching", function()
+            local filters = {
+                ["!Status"] = {
+                    {value = "completed", case_insensitive = true}
+                }
+            }
+            local filtered = task.filterTasks(task_list, filters)
+            
+            -- Should exclude simple, mixed_properties, and case_variations (3 files)
+            -- Should include bracket_list and bullet_list (2 files)
+            assert.equals(2, #filtered)
+        end)
+
+        it("should handle exclusion filters with operators", function()
+            local filters = {
+                ["!Status"] = {
+                    {value = "Complete", operator = "~"}
+                }
+            }
+            local filtered = task.filterTasks(task_list, filters)
+            
+            -- Should exclude simple and mixed_properties (2 files)
+            -- Should include bracket_list, bullet_list, and case_variations (3 files)
+            assert.equals(3, #filtered)
+        end)
+
+        it("should handle mixed inclusion and exclusion filters", function()
+            local filters = {
+                Priority = "High",  -- Include only high priority
+                ["!Status"] = "Completed"  -- Exclude completed
+            }
+            local filtered = task.filterTasks(task_list, filters)
+            
+            -- Should include only mixed_properties (has High priority and Completed status, but exclusion should work)
+            -- simple has High priority but Completed status (excluded by !Status)
+            -- case_variations has HIGH priority but completed status (excluded by !Status)
+            -- mixed_properties has High priority and Completed status (excluded by !Status)
+            -- bullet_list has Low priority (excluded by Priority)
+            assert.equals(0, #filtered)  -- All tasks should be excluded
+        end)
+
+        it("should handle exclusion filters with multiple operators", function()
+            local filters = {
+                ["!Status"] = {
+                    {value = "Completed", operator = "="},
+                    {value = "Closed", operator = "="}
+                }
+            }
+            local filtered = task.filterTasks(task_list, filters)
+            
+            -- Should exclude simple, bracket_list, and mixed_properties (3 files)
+            -- Should include bullet_list and case_variations (2 files)
+            assert.equals(2, #filtered)
+        end)
+
+        it("should handle exclusion filters with mixed formats", function()
+            local filters = {
+                ["!Status"] = {
+                    "Completed",  -- Simple string (defaults to ~ operator)
+                    {value = "Closed", operator = "="}
+                }
+            }
+            local filtered = task.filterTasks(task_list, filters)
+            
+            -- Should exclude simple, bracket_list, and mixed_properties (3 files)
+            -- Should include bullet_list and case_variations (2 files)
+            assert.equals(2, #filtered)
+        end)
+
+        it("should handle exclusion filters when property doesn't exist", function()
+            local filters = {
+                ["!NonExistent"] = "SomeValue"
+            }
+            local filtered = task.filterTasks(task_list, filters)
+            
+            -- Should include all tasks since none have the NonExistent property
+            assert.equals(5, #filtered)
+        end)
+
+        it("should handle exclusion filters with empty values", function()
+            local filters = {
+                ["!Status"] = {}
+            }
+            local filtered = task.filterTasks(task_list, filters)
+            
+            -- Should include all tasks since no exclusion criteria
+            assert.equals(5, #filtered)
+        end)
+
+        it("should handle complex exclusion scenarios", function()
+            local filters = {
+                ["!Status"] = {
+                    {value = "Completed", operator = "="},
+                    {value = "Closed", operator = "="},
+                    {value = "progress", operator = "~", case_insensitive = true}
+                }
+            }
+            local filtered = task.filterTasks(task_list, filters)
+            
+            -- Should exclude:
+            -- - simple (Completed)
+            -- - bracket_list (Closed) 
+            -- - mixed_properties (Completed)
+            -- - bullet_list (In Progress - contains "progress")
+            -- Should include only case_variations
+            assert.equals(1, #filtered)
+            assert.equals(test_files.case_variations, filtered[1])
+        end)
+    end)
 end)

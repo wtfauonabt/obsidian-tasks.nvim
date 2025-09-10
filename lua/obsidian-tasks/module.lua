@@ -8,6 +8,11 @@ local M = {}
 
 -- Function to search tasks based on filters
 M.search = function(vault_path, task_folder, filters)
+    -- Handle nil parameters gracefully
+    vault_path = vault_path or ""
+    task_folder = task_folder or ""
+    filters = filters or {}
+    
     local search_path = vault_path .. task_folder
 
     -- List files in the task folder and parse to telescope
