@@ -96,28 +96,28 @@ This task has different case variations.
     describe("getTaskProperties", function()
         it("should parse simple properties", function()
             local properties = task.getTaskProperties(test_files.simple)
-            
+
             assert.equals("Completed", properties.Status)
             assert.equals("High", properties.Priority)
         end)
 
         it("should parse bracket list properties", function()
             local properties = task.getTaskProperties(test_files.bracket_list)
-            
+
             assert.equals("Closed", properties.Status)
             assert.equals("Important, Urgent", properties.Tags)
         end)
 
         it("should parse bullet list properties", function()
             local properties = task.getTaskProperties(test_files.bullet_list)
-            
+
             assert.equals("Not Started, In Progress", properties.Status)
             assert.equals("Development, Testing", properties.Tags)
         end)
 
         it("should parse mixed property formats", function()
             local properties = task.getTaskProperties(test_files.mixed_properties)
-            
+
             assert.equals("Completed", properties.Status)
             assert.equals("High", properties.Priority)
             assert.equals("Important, Done", properties.Tags)
@@ -126,7 +126,7 @@ This task has different case variations.
 
         it("should handle non-existent files", function()
             local properties = task.getTaskProperties("/non/existent/file.md")
-            
+
             assert.is_not_nil(properties)
             assert.is_nil(properties.Status)
             assert.is_nil(properties.Priority)
@@ -135,9 +135,9 @@ This task has different case variations.
         it("should handle empty files", function()
             local empty_file = test_dir .. "/empty.md"
             vim.fn.writefile({}, empty_file)
-            
+
             local properties = task.getTaskProperties(empty_file)
-            
+
             assert.is_not_nil(properties)
             assert.is_nil(properties.Status)
         end)
@@ -146,7 +146,7 @@ This task has different case variations.
     describe("getTaskList", function()
         it("should return list of task files", function()
             local task_list = task.getTaskList(test_dir)
-            
+
             assert.equals(5, #task_list)
             assert.is_true(vim.tbl_contains(task_list, test_files.simple))
             assert.is_true(vim.tbl_contains(task_list, test_files.bracket_list))
@@ -156,9 +156,9 @@ This task has different case variations.
         it("should handle empty directory", function()
             local empty_dir = test_dir .. "/empty"
             vim.fn.mkdir(empty_dir, "p")
-            
+
             local task_list = task.getTaskList(empty_dir)
-            
+
             assert.equals(0, #task_list)
         end)
     end)
@@ -173,14 +173,14 @@ This task has different case variations.
         it("should filter by single value", function()
             local filters = {Status = "Completed"}
             local filtered = task.filterTasks(task_list, filters)
-            
+
             assert.equals(2, #filtered)  -- simple and mixed_properties
         end)
 
         it("should filter by multiple values", function()
             local filters = {Status = {"Completed", "Closed"}}
             local filtered = task.filterTasks(task_list, filters)
-            
+
             assert.equals(3, #filtered)  -- simple, bracket_list, mixed_properties
         end)
 
@@ -190,14 +190,14 @@ This task has different case variations.
                 Priority = "High"
             }
             local filtered = task.filterTasks(task_list, filters)
-            
+
             assert.equals(2, #filtered)  -- simple and mixed_properties
         end)
 
         it("should handle case sensitive filtering", function()
             local filters = {Status = "completed"}  -- lowercase
             local filtered = task.filterTasks(task_list, filters)
-            
+
             assert.equals(1, #filtered)  -- only case_variations
         end)
 
@@ -208,7 +208,7 @@ This task has different case variations.
                 }
             }
             local filtered = task.filterTasks(task_list, filters)
-            
+
             assert.equals(3, #filtered)  -- simple, mixed_properties, case_variations
         end)
 
@@ -220,7 +220,7 @@ This task has different case variations.
                 }
             }
             local filtered = task.filterTasks(task_list, filters)
-            
+
             assert.equals(4, #filtered)  -- simple, bracket_list, mixed_properties, case_variations
         end)
 
@@ -232,34 +232,34 @@ This task has different case variations.
                 }
             }
             local filtered = task.filterTasks(task_list, filters)
-            
+
             assert.equals(3, #filtered)  -- simple, mixed_properties, case_variations
         end)
 
         it("should filter by list properties", function()
             local filters = {Tags = "Important"}
             local filtered = task.filterTasks(task_list, filters)
-            
+
             assert.equals(3, #filtered)  -- bracket_list, mixed_properties, case_variations
         end)
 
         it("should handle non-matching filters", function()
             local filters = {Status = "NonExistent"}
             local filtered = task.filterTasks(task_list, filters)
-            
+
             assert.equals(0, #filtered)
         end)
 
         it("should handle empty filters", function()
             local filtered = task.filterTasks(task_list, {})
-            
+
             assert.equals(5, #filtered)  -- all tasks
         end)
 
         it("should handle invalid file paths", function()
             local invalid_list = {"", nil, "/non/existent/file.md"}
             local filtered = task.filterTasks(invalid_list, {Status = "Completed"})
-            
+
             assert.equals(0, #filtered)
         end)
     end)
@@ -276,9 +276,9 @@ Priority: High
 # No Value Task
 ]]
             vim.fn.writefile(vim.split(content, "\n"), no_value_file)
-            
+
             local properties = task.getTaskProperties(no_value_file)
-            
+
             assert.is_not_nil(properties)
             assert.equals("High", properties.Priority)
             assert.is_nil(properties.Status)
@@ -295,9 +295,9 @@ Priority: High
 # Malformed Task
 ]]
             vim.fn.writefile(vim.split(content, "\n"), malformed_file)
-            
+
             local properties = task.getTaskProperties(malformed_file)
-            
+
             assert.is_not_nil(properties)
             assert.equals("Completed: Extra", properties.Status)
             assert.equals("High", properties.Priority)
@@ -314,11 +314,151 @@ Status: %s
 # Long Value Task
 ]], long_value)
             vim.fn.writefile(vim.split(content, "\n"), long_file)
-            
+
             local properties = task.getTaskProperties(long_file)
-            
+
             assert.is_not_nil(properties)
             assert.equals(long_value, properties.Status)
+        end)
+    end)
+
+    describe("logical operators", function()
+        local task_list
+
+        before_each(function()
+            task_list = task.getTaskList(test_dir)
+        end)
+
+        it("should support exact match operator (=)", function()
+            local filters = {
+                Status = {
+                    {value = "Completed", operator = "="}
+                }
+            }
+            local filtered = task.filterTasks(task_list, filters)
+            
+            assert.equals(2, #filtered)  -- simple and mixed_properties
+        end)
+
+        it("should support not equal operator (!=)", function()
+            local filters = {
+                Status = {
+                    {value = "Completed", operator = "!="}
+                }
+            }
+            local filtered = task.filterTasks(task_list, filters)
+            
+            assert.equals(3, #filtered)  -- bracket_list, bullet_list, case_variations
+        end)
+
+        it("should support contains operator (~)", function()
+            local filters = {
+                Status = {
+                    {value = "Complete", operator = "~"}
+                }
+            }
+            local filtered = task.filterTasks(task_list, filters)
+            
+            assert.equals(2, #filtered)  -- simple and mixed_properties
+        end)
+
+        it("should support does not contain operator (!~)", function()
+            local filters = {
+                Status = {
+                    {value = "Complete", operator = "!~"}
+                }
+            }
+            local filtered = task.filterTasks(task_list, filters)
+            
+            assert.equals(3, #filtered)  -- bracket_list, bullet_list, case_variations
+        end)
+
+        it("should support starts with operator (^)", function()
+            local filters = {
+                Status = {
+                    {value = "Comp", operator = "^"}
+                }
+            }
+            local filtered = task.filterTasks(task_list, filters)
+            
+            assert.equals(2, #filtered)  -- simple and mixed_properties
+        end)
+
+        it("should support does not start with operator (!^)", function()
+            local filters = {
+                Status = {
+                    {value = "Comp", operator = "!^"}
+                }
+            }
+            local filtered = task.filterTasks(task_list, filters)
+            
+            assert.equals(3, #filtered)  -- bracket_list, bullet_list, case_variations
+        end)
+
+        it("should support ends with operator ($)", function()
+            local filters = {
+                Status = {
+                    {value = "ted", operator = "$"}
+                }
+            }
+            local filtered = task.filterTasks(task_list, filters)
+            
+            assert.equals(4, #filtered)  -- simple, mixed_properties, case_variations, bullet_list (In Progress)
+        end)
+
+        it("should support does not end with operator (!$)", function()
+            local filters = {
+                Status = {
+                    {value = "ted", operator = "!$"}
+                }
+            }
+            local filtered = task.filterTasks(task_list, filters)
+            
+            assert.equals(2, #filtered)  -- bracket_list, bullet_list
+        end)
+
+        it("should support mixed operators", function()
+            local filters = {
+                Status = {
+                    {value = "Completed", operator = "="},
+                    {value = "Closed", operator = "!="}
+                }
+            }
+            local filtered = task.filterTasks(task_list, filters)
+            
+            assert.equals(4, #filtered)  -- all files
+        end)
+
+        it("should support operators with case insensitive", function()
+            local filters = {
+                Status = {
+                    {value = "completed", operator = "=", case_insensitive = true}
+                }
+            }
+            local filtered = task.filterTasks(task_list, filters)
+            
+            assert.equals(3, #filtered)  -- simple, mixed_properties, case_variations
+        end)
+
+        it("should default to contains operator (~) for simple values", function()
+            local filters = {
+                Status = "Complete"  -- Should use ~ operator by default
+            }
+            local filtered = task.filterTasks(task_list, filters)
+            
+            assert.equals(2, #filtered)  -- simple and mixed_properties
+        end)
+
+        it("should handle unknown operators gracefully", function()
+            local filters = {
+                Status = {
+                    {value = "Complete", operator = "unknown"}
+                }
+            }
+            local filtered = task.filterTasks(task_list, filters)
+            
+            -- Should default to contains behavior
+            assert.equals(2, #filtered)  -- simple and mixed_properties
         end)
     end)
 end)

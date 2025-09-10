@@ -8,8 +8,8 @@ local config = {
     vault_path = os.getenv('OBSIDIAN_VAULT_PATH') or "/default/path/to/vault",
     task_folder = "/task",
     filters = {
-        Archive = "true",
-        Status = {"Completed", "Closed"},
+        Archive = "false",
+        ["!Status"] = {"Completed", "Closed"},
     },
 }
 
