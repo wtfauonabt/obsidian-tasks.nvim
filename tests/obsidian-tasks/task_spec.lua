@@ -321,4 +321,144 @@ Status: %s
             assert.equals(long_value, properties.Status)
         end)
     end)
+
+    describe("logical operators", function()
+        local task_list
+
+        before_each(function()
+            task_list = task.getTaskList(test_dir)
+        end)
+
+        it("should support exact match operator (=)", function()
+            local filters = {
+                Status = {
+                    {value = "Completed", operator = "="}
+                }
+            }
+            local filtered = task.filterTasks(task_list, filters)
+            
+            assert.equals(2, #filtered)  -- simple and mixed_properties
+        end)
+
+        it("should support not equal operator (!=)", function()
+            local filters = {
+                Status = {
+                    {value = "Completed", operator = "!="}
+                }
+            }
+            local filtered = task.filterTasks(task_list, filters)
+            
+            assert.equals(3, #filtered)  -- bracket_list, bullet_list, case_variations
+        end)
+
+        it("should support contains operator (~)", function()
+            local filters = {
+                Status = {
+                    {value = "Complete", operator = "~"}
+                }
+            }
+            local filtered = task.filterTasks(task_list, filters)
+            
+            assert.equals(2, #filtered)  -- simple and mixed_properties
+        end)
+
+        it("should support does not contain operator (!~)", function()
+            local filters = {
+                Status = {
+                    {value = "Complete", operator = "!~"}
+                }
+            }
+            local filtered = task.filterTasks(task_list, filters)
+            
+            assert.equals(3, #filtered)  -- bracket_list, bullet_list, case_variations
+        end)
+
+        it("should support starts with operator (^)", function()
+            local filters = {
+                Status = {
+                    {value = "Comp", operator = "^"}
+                }
+            }
+            local filtered = task.filterTasks(task_list, filters)
+            
+            assert.equals(2, #filtered)  -- simple and mixed_properties
+        end)
+
+        it("should support does not start with operator (!^)", function()
+            local filters = {
+                Status = {
+                    {value = "Comp", operator = "!^"}
+                }
+            }
+            local filtered = task.filterTasks(task_list, filters)
+            
+            assert.equals(3, #filtered)  -- bracket_list, bullet_list, case_variations
+        end)
+
+        it("should support ends with operator ($)", function()
+            local filters = {
+                Status = {
+                    {value = "ted", operator = "$"}
+                }
+            }
+            local filtered = task.filterTasks(task_list, filters)
+            
+            assert.equals(4, #filtered)  -- simple, mixed_properties, case_variations, bullet_list (In Progress)
+        end)
+
+        it("should support does not end with operator (!$)", function()
+            local filters = {
+                Status = {
+                    {value = "ted", operator = "!$"}
+                }
+            }
+            local filtered = task.filterTasks(task_list, filters)
+            
+            assert.equals(2, #filtered)  -- bracket_list, bullet_list
+        end)
+
+        it("should support mixed operators", function()
+            local filters = {
+                Status = {
+                    {value = "Completed", operator = "="},
+                    {value = "Closed", operator = "!="}
+                }
+            }
+            local filtered = task.filterTasks(task_list, filters)
+            
+            assert.equals(4, #filtered)  -- all files
+        end)
+
+        it("should support operators with case insensitive", function()
+            local filters = {
+                Status = {
+                    {value = "completed", operator = "=", case_insensitive = true}
+                }
+            }
+            local filtered = task.filterTasks(task_list, filters)
+            
+            assert.equals(3, #filtered)  -- simple, mixed_properties, case_variations
+        end)
+
+        it("should default to contains operator (~) for simple values", function()
+            local filters = {
+                Status = "Complete"  -- Should use ~ operator by default
+            }
+            local filtered = task.filterTasks(task_list, filters)
+            
+            assert.equals(2, #filtered)  -- simple and mixed_properties
+        end)
+
+        it("should handle unknown operators gracefully", function()
+            local filters = {
+                Status = {
+                    {value = "Complete", operator = "unknown"}
+                }
+            }
+            local filtered = task.filterTasks(task_list, filters)
+            
+            -- Should default to contains behavior
+            assert.equals(2, #filtered)  -- simple and mixed_properties
+        end)
+    end)
 end)

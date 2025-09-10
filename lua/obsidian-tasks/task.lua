@@ -104,14 +104,54 @@ end
 
 -- Utility function to normalize filter value (handle metadata format)
 ---@param filter_item string|table
----@return string, boolean
+---@return string, boolean, string
 local function normalize_filter_item(filter_item)
     if type(filter_item) == "string" then
-        return filter_item, false  -- default to case sensitive
+        return filter_item, false, "~"  -- default to case sensitive, contains operator
     elseif type(filter_item) == "table" and filter_item.value then
-        return filter_item.value, filter_item.case_insensitive or false
+        return filter_item.value, filter_item.case_insensitive or false, filter_item.operator or "~"
     else
-        return tostring(filter_item), false
+        return tostring(filter_item), false, "~"
+    end
+end
+
+-- Utility function to apply logical operator comparison
+---@param property_value string
+---@param filter_value string
+---@param operator string
+---@param case_insensitive boolean
+---@return boolean
+local function apply_logical_operator(property_value, filter_value, operator, case_insensitive)
+    local search_text = case_insensitive and property_value:lower() or property_value
+    local search_filter = case_insensitive and filter_value:lower() or filter_value
+    
+    if operator == "=" then
+        -- Exact match
+        return search_text == search_filter
+    elseif operator == "!=" then
+        -- Not equal
+        return search_text ~= search_filter
+    elseif operator == "~" then
+        -- Contains (default behavior)
+        return search_text:find(search_filter) ~= nil
+    elseif operator == "!~" then
+        -- Does not contain
+        return search_text:find(search_filter) == nil
+    elseif operator == "^" then
+        -- Starts with
+        return search_text:find("^" .. search_filter) ~= nil
+    elseif operator == "!^" then
+        -- Does not start with
+        return search_text:find("^" .. search_filter) == nil
+    elseif operator == "$" then
+        -- Ends with
+        return search_text:match(search_filter .. "$") ~= nil
+    elseif operator == "!$" then
+        -- Does not end with
+        return search_text:match(search_filter .. "$") == nil
+    else
+        -- Default to contains for unknown operators
+        return search_text:find(search_filter) ~= nil
     end
 end
 
@@ -119,13 +159,11 @@ end
 ---@param property_values table
 ---@param filter_value string
 ---@param case_insensitive boolean
+---@param operator string
 ---@return boolean
-local function matches_single_filter(property_values, filter_value, case_insensitive)
+local function matches_single_filter(property_values, filter_value, case_insensitive, operator)
     for _, prop_val in ipairs(property_values) do
-        local search_text = case_insensitive and prop_val:lower() or prop_val
-        local search_filter = case_insensitive and filter_value:lower() or filter_value
-
-        if search_text:find(search_filter) then
+        if apply_logical_operator(prop_val, filter_value, operator, case_insensitive) then
             return true
         end
     end
@@ -138,8 +176,8 @@ end
 ---@return boolean
 local function matches_multiple_filters(property_values, filter_items)
     for _, filter_item in ipairs(filter_items) do
-        local filter_value, case_insensitive = normalize_filter_item(filter_item)
-        if matches_single_filter(property_values, filter_value, case_insensitive) then
+        local filter_value, case_insensitive, operator = normalize_filter_item(filter_item)
+        if matches_single_filter(property_values, filter_value, case_insensitive, operator) then
             return true
         end
     end
@@ -152,12 +190,12 @@ end
 ---@return boolean
 local function property_matches_filter(property_value, filter_value)
     local property_values = split_property_values(property_value)
-
+    
     if type(filter_value) == "table" then
         return matches_multiple_filters(property_values, filter_value)
     else
-        -- Single value, default to case sensitive
-        return matches_single_filter(property_values, filter_value, false)
+        -- Single value, default to case sensitive, contains operator
+        return matches_single_filter(property_values, filter_value, false, "~")
     end
 end
 
@@ -258,7 +296,17 @@ end
 ---   Simple single value: {Status = "Completed"}
 ---   Multiple values: {Status = {"Completed", "Closed"}}
 ---   With metadata: {Status = {{value = "Completed", case_insensitive = true}, "Closed"}}
----   Mixed format: {Status = {"Completed", {value = "Closed", case_insensitive = false}}}
+---   With logical operators: {Status = {{value = "Completed", operator = "=", case_insensitive = false}}}
+---   Mixed format: {Status = {"Completed", {value = "Closed", operator = "!=", case_insensitive = true}}}
+---   Supported operators:
+---   - "=" : Exact match
+---   - "!=" : Not equal
+---   - "~" : Contains (default)
+---   - "!~" : Does not contain
+---   - "^" : Starts with
+---   - "!^" : Does not start with
+---   - "$" : Ends with
+---   - "!$" : Does not end with
 ---   Works with various property formats:
 ---   - Simple: Status: Completed
 ---   - Bracket list: Status: [[Closed]]
