@@ -9,7 +9,7 @@ local config = {
     task_folder = "/task",
     filters = {
         Archive = "true",
-        Status = "Completed",
+        Status = {"Completed", "Closed"},
     },
 }
 

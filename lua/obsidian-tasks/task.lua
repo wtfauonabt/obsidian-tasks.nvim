@@ -57,6 +57,11 @@ M.getTaskProperties = function(task_path)
 end
 
 --- Filter tasks based on the filters
+---@param task_list table List of task file paths
+---@param filters table Filter criteria. Supports both single values and arrays:
+---   Single value: {Status = "Completed"}
+---   Multiple values: {Status = {"Completed", "Closed"}}
+---@return table Filtered list of task file paths
 M.filterTasks = function(task_list, filters)
     local filtered_task_list = {}
 
@@ -71,14 +76,41 @@ M.filterTasks = function(task_list, filters)
         local task_properties = M.getTaskProperties(file_path)
 
         -- Loop filter and see if task matches
-        for key, value in pairs(filters) do
-            if task_properties[key] and task_properties[key]:find(value) then
-                goto continue
+        local task_matches = true
+        for key, filter_value in pairs(filters) do
+            if task_properties[key] then
+                local property_value = task_properties[key]
+                local matches_filter = false
+
+                -- Check if filter_value is an array (table)
+                if type(filter_value) == "table" then
+                    -- Multiple values: check if property matches any of the values
+                    for _, value in ipairs(filter_value) do
+                        if property_value:find(value) then
+                            matches_filter = true
+                            break
+                        end
+                    end
+                else
+                    -- Single value: check if property contains the value
+                    matches_filter = property_value:find(filter_value) ~= nil
+                end
+
+                if not matches_filter then
+                    task_matches = false
+                    break
+                end
+            else
+                -- If task doesn't have the property, it doesn't match
+                task_matches = false
+                break
             end
         end
 
-        -- Add the file to the task list
-        table.insert(filtered_task_list, file_path)
+        -- Add the file to the task list if it matches all filters
+        if task_matches then
+            table.insert(filtered_task_list, file_path)
+        end
         ::continue::
     end
 
