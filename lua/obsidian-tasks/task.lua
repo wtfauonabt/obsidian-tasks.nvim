@@ -205,12 +205,24 @@ end
 ---@return boolean
 local function task_matches_filters(task_properties, filters)
     for key, filter_value in pairs(filters) do
-        if not task_properties[key] then
-            return false
-        end
+        -- Check if this is an exclusion filter (starts with "!")
+        if key:sub(1, 1) == "!" then
+            local actual_key = key:sub(2) -- Remove the "!" prefix
+            if task_properties[actual_key] then
+                -- If the property exists and matches the exclusion filter, exclude this task
+                if property_matches_filter(task_properties[actual_key], filter_value) then
+                    return false
+                end
+            end
+        else
+            -- Regular inclusion filter
+            if not task_properties[key] then
+                return false
+            end
 
-        if not property_matches_filter(task_properties[key], filter_value) then
-            return false
+            if not property_matches_filter(task_properties[key], filter_value) then
+                return false
+            end
         end
     end
     return true
@@ -307,6 +319,8 @@ end
 ---   - "!^" : Does not start with
 ---   - "$" : Ends with
 ---   - "!$" : Does not end with
+---   Mixed format: {Status = {"Completed", {value = "Closed", case_insensitive = false}}}
+---   Exclusion filters (prefix with !): {"!Status" = {"Completed", "Closed"}}
 ---   Works with various property formats:
 ---   - Simple: Status: Completed
 ---   - Bracket list: Status: [[Closed]]
